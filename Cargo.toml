@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Duszku <duszku511@gmail.com>
+# SPDX-License-Identifier: EUPL-1.2
+
+[package]
+name = "lunar-boot"
+version = "0.1.0"
+authors = ["Duszku <duszku511@gmail.com>"]
+edition = "2024"
+description = "A simple bootloader"
+readme = "README.md"
+repository = "https://github.com/dus-li/lunar-boot"
+license = "EUPL-1.2"
+build = "build/build.rs"
+publish = false
+
+[dependencies]
+
+[build-dependencies]
+cargo-build = { version = "1.0.0", features = ["macros"] }
+cc = "1.2.53"
