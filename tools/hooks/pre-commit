@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Duszku <duszku511@gmail.com>
+# SPDX-License-Identifier: EUPL-1.2
+
+"""Pre-commit Git hook ensuring compliance of the commits with the rules.
+
+This script functions as a developer-side tool for early detection of
+non-conformant changes in commits. It should not serve as a sole safeguard of
+them, but rather be an optional, auxiliary tool that can shorten the path a
+change needs to take before those inconsistencies are detected and rejected.
+
+Analogous checks ought to exist on the Git forge side, ensuring no messy changes
+make their way to the repository. In particular, following conditions must be
+satisfied:
+
+    1. Proper licensing of all files, confirmed by the `reuse` tool,
+    2. Compliance with formatting style,
+"""
+
+import subprocess
+import os
+import sys
+
+CMD_CHANGES = ['git', 'diff', '--cached', '--name-only', '--diff-filter=ACMR']
+
+def run(command):
+    return subprocess.run(command, capture_output=True, text=True)
+
+
+def main():
+    files = run(CMD_CHANGES).stdout.splitlines()
+    if not files:
+        sys.exit(0)
+
+    failed = False
+    for path in files:
+        if os.path.exists(path):
+            lint = run(['reuse', 'lint-file', path])
+            if lint.returncode != 0:
+                print(lint.stdout or lint.stderr)
+                failed = True
+
+    if failed:
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()
