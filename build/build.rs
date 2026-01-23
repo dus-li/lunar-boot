@@ -15,6 +15,10 @@ fn archdir(arch: &str) -> PathBuf {
     PathBuf::from("arch").join(arch)
 }
 
+fn arch_generic_dir() -> PathBuf {
+    PathBuf::from("arch").join("generic")
+}
+
 fn boarddir(board: &str) -> PathBuf {
     PathBuf::from("boards").join(board)
 }
@@ -36,6 +40,7 @@ fn build_asm(arch: &str) -> Result<(), ()> {
 
     cc.flags(["-x", "assembler-with-cpp"])
         .include(&archdir(arch))
+        .include(&arch_generic_dir())
         .compile("archasm");
 
     Ok(())
@@ -59,6 +64,7 @@ fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
     commands::Cpp::new(&dts, &raw)
         .define("__DTS__", None)
         .includes(&[&archdir(arch)])
+        .includes(&[&arch_generic_dir()])
         .run()?;
 
     let status = Command::new("dtc")
@@ -86,7 +92,9 @@ fn cons_lds(out: &PathBuf, arch: &str, board: &str) -> Result<PathBuf, ()> {
 
     commands::Cpp::new(&out.join("lunar.lds"), &input)
         .define("__LINKER_SCRIPT__", None)
-        .includes(&[&archdir(arch), &boarddir(board)])
+        .includes(&[&archdir(arch)])
+        .includes(&[&arch_generic_dir()])
+        .includes(&[&boarddir(board)])
         .run()?;
 
     Ok(lds)
