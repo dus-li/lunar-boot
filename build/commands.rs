@@ -3,6 +3,8 @@
 
 use std::path::PathBuf;
 
+use crate::cargo;
+
 pub struct Cpp<'a> {
     output: &'a PathBuf,
     input: &'a PathBuf,
@@ -30,8 +32,8 @@ impl<'a> Cpp<'a> {
         self
     }
 
-    pub fn includes(mut self, includes: &[&PathBuf]) -> Self {
-        self.build.includes(includes);
+    pub fn include(mut self, include: &PathBuf) -> Self {
+        self.build.include(include);
         self
     }
 
@@ -51,7 +53,7 @@ impl<'a> Cpp<'a> {
             return Ok(());
         }
 
-        cargo_build::error!("Failed to preprocess {}", input);
+        cargo::error!("Failed to preprocess {input}");
         Err(())
     }
 }

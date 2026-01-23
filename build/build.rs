@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: EUPL-1.2
 
 mod commands;
+mod cargo;
 mod sources;
 
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
-use cargo_build;
 use cc;
 
 fn archdir(arch: &str) -> PathBuf {
@@ -29,7 +29,7 @@ fn build_asm(arch: &str) -> Result<(), ()> {
 
     for file in sources::Sources::new(&asmdir, &["S", "s"]) {
         let path = file.path();
-        cargo_build::rerun_if_changed(&path);
+        cargo::rerun_if_changed!(path);
         cc.file(&path);
     }
 
@@ -52,19 +52,19 @@ fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
     let dtb = out.join("board.dtb");
 
     if !raw.exists() {
-        cargo_build::error!("DTS for board '{}' missing", board);
+        cargo::error!("DTS for board '{board}' missing");
         return Err(());
     }
 
-    cargo_build::rerun_if_changed(&raw);
+    cargo::rerun_if_changed!(raw);
     for file in sources::Sources::new(&archdir(arch), &["dts", "dtsi"]) {
-        cargo_build::rerun_if_changed(&file.path());
+        cargo::rerun_if_changed!(file);
     }
 
     commands::Cpp::new(&dts, &raw)
         .define("__DTS__", None)
-        .includes(&[&archdir(arch)])
-        .includes(&[&arch_generic_dir()])
+        .include(&archdir(arch))
+        .include(&arch_generic_dir())
         .run()?;
 
     let status = Command::new("dtc")
@@ -75,9 +75,11 @@ fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
         .status();
 
     if !status.is_ok_and(|result| result.success()) {
-        cargo_build::error("Failed to compile DTS");
+        cargo::error!("Failed to compile DTS");
         return Err(());
     }
+
+    cargo::info!("DTB: {dtb:?}");
 
     Ok(())
 }
@@ -87,14 +89,14 @@ fn cons_lds(out: &PathBuf, arch: &str, board: &str) -> Result<PathBuf, ()> {
     let lds = out.join("lunar.lds");
 
     for file in sources::Sources::new(&archdir(arch), &["lds", "ld"]) {
-        cargo_build::rerun_if_changed(&file.path());
+        cargo::rerun_if_changed!(file);
     }
 
     commands::Cpp::new(&out.join("lunar.lds"), &input)
         .define("__LINKER_SCRIPT__", None)
-        .includes(&[&archdir(arch)])
-        .includes(&[&arch_generic_dir()])
-        .includes(&[&boarddir(board)])
+        .include(&archdir(arch))
+        .include(&arch_generic_dir())
+        .include(&boarddir(board))
         .run()?;
 
     Ok(lds)
@@ -105,24 +107,24 @@ fn do_main(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
     build_dtb(out, arch, board)?;
 
     let lds = cons_lds(out, arch, board)?;
-    cargo_build::rustc_link_arg!("-T{}", { lds.display() });
+    cargo::rustc_link_arg!("-T{}", lds.display());
 
     Ok(())
 }
 
 fn main() {
-    println!("cargo::rerun-if-env-changed=BOARD");
-    cargo_build::rerun_if_changed(&PathBuf::from("build.rs"));
+    cargo::rerun_if_env_changed!("BOARD");
+    cargo::rerun_if_changed!(file!());
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
     let Ok(board) = env::var("BOARD") else {
-        cargo_build::error("BOARD value not set");
+        cargo::error!("BOARD value not set");
         return;
     };
 
-    cargo_build::rustc_env("BOARD", &board);
+    cargo::rustc_env!("BOARD", &board);
 
     let _ = do_main(&out, &arch, &board);
 }

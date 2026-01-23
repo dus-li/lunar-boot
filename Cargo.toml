@@ -16,5 +16,4 @@ publish = false
 [dependencies]
 
 [build-dependencies]
-cargo-build = { version = "1.0.0", features = ["macros"] }
 cc = "1.2.53"

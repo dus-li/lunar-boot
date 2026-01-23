@@ -5,6 +5,8 @@ use std::fs::{DirEntry, ReadDir};
 use std::iter::Iterator;
 use std::path::PathBuf;
 
+use crate::cargo;
+
 pub struct Sources<'a> {
     root: &'a PathBuf,
     exts: Vec<&'a str>,
@@ -33,7 +35,7 @@ impl<'a> IntoIterator for Sources<'a> {
             Ok(iter) => iter.into_iter(),
             Err(err) => {
                 let path = self.root.display();
-                cargo_build::error!("Failed to read {path}: {err}");
+                cargo::error!("Failed to read {path}: {err}");
                 std::process::exit(1);
             }
         };
@@ -53,7 +55,7 @@ impl<'a> Iterator for SourcesIter<'a> {
             let dentry = match result {
                 Ok(dentry) => dentry,
                 Err(err) => {
-                    cargo_build::error!("Directory access failure: {err}");
+                    cargo::error!("Directory access failure: {err}");
                     std::process::exit(1);
                 }
             };
