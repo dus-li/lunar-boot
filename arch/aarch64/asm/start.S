@@ -89,6 +89,11 @@ el1_entry:
 	ADR	x9, __estack
 	MOV	sp, x9
 
+	// Enable full access to floating point and SIMD for EL1 and EL0.
+	MOV	x9, #(CPACR_EL1_INITIALIZER)
+	MSR	cpacr_el1, x9
+	ISB
+
 	// Populate .bss section with zeros.
 	ADR	x9, __bss
 	ADR	x10, __ebss
@@ -97,11 +102,6 @@ el1_entry:
 	STP	xzr, xzr, [x9]
 	ADD	x9, x9, #16
 	B	0b
-
-	// Enable full access to floating point and SIMD for EL1 and EL0.
-	MOV	x9, #(CPACR_EL1_INITIALIZER)
-	MSR	cpacr_el1, x9
-	ISB
 
 branch_to_hll:
 	BL	kmain
