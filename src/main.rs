@@ -4,10 +4,16 @@
 #![no_std]
 #![no_main]
 
+pub mod fdt;
+pub mod inttypes;
+
 use core::panic::PanicInfo;
 
 #[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.start")]
 pub extern "C" fn kmain() -> ! {
+    fdt::Fdt::init();
+
     loop {}
 }
 

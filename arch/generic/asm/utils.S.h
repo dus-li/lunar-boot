@@ -22,7 +22,7 @@
   /// @param name Name of the section.
   ///
   /// @see SECTION3
-  #define SECTION1(name) \
+  #define SECTION(name) \
   	.section name
 
   /// Assemble following code into a particular section.
@@ -31,7 +31,7 @@
   /// @param attr One of constants from @ref ElfAttributes.
   ///
   /// @see SECTION1
-  #define SECTION3(name, type, attr) \
+  #define FLAGS_SECTION(name, type, attr) \
   	.section name, attr, type
 
   /// Declare a beginning of a global function.
@@ -48,6 +48,22 @@
   ///
   /// @see BEGIN_FUNCTION
   #define END_FUNCTION(name) \
+  	.size	name, .-name
+
+  /// Declare a beginning of a global object.
+  /// @param name Symbol of the object.
+  ///
+  /// @see END_OBJECT
+  #define BEGIN_OBJECT(name)  \
+  	.globl	name;          \
+  	.type	name, %object; \
+  name:;
+
+  /// Declare end of an object.
+  /// @param name Symbol of the object.
+  ///
+  /// @see BEGIN_OBJECT
+  #define END_OBJECT(name) \
   	.size	name, .-name
 
 #endif // defined(__ASSEMBLER__)

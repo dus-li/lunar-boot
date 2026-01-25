@@ -15,6 +15,9 @@ SECTIONS
 	// Early initialization code.
 	SECTION_START_TEXT
 
+	// Devicetree blob.
+	SECTION_DTB
+
 	// Initialized and uninitialized data sections.
 	SECTION_DATA
 	SECTION_BSS(16)

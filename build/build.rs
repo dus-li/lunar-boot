@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Duszku <duszku511@gmail.com>
 // SPDX-License-Identifier: EUPL-1.2
 
-mod commands;
 mod cargo;
+mod commands;
 mod sources;
 
 use std::env;
@@ -23,7 +23,7 @@ fn boarddir(board: &str) -> PathBuf {
     PathBuf::from("boards").join(board)
 }
 
-fn build_asm(arch: &str) -> Result<(), ()> {
+fn build_asm(arch: &str, dtbo: &PathBuf) -> Result<(), ()> {
     let asmdir = archdir(arch).join("asm");
     let mut cc = cc::Build::new();
 
@@ -41,15 +41,16 @@ fn build_asm(arch: &str) -> Result<(), ()> {
     cc.flags(["-x", "assembler-with-cpp"])
         .include(&archdir(arch))
         .include(&arch_generic_dir())
+        .define("BUILD_DTBO_PATH", Some(format!("{dtbo:?}").as_str()))
         .compile("archasm");
 
     Ok(())
 }
 
-fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
+fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<PathBuf, ()> {
     let raw = boarddir(board).join("board.dts");
     let dts = out.join("board.dts");
-    let dtb = out.join("board.dtb");
+    let dtbo = out.join("board.dtb.o");
 
     if !raw.exists() {
         cargo::error!("DTS for board '{board}' missing");
@@ -70,7 +71,7 @@ fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
     let status = Command::new("dtc")
         .args(["-I", "dts"])
         .args(["-O", "dtb"])
-        .args(["-o", &dtb.display().to_string()])
+        .args(["-o", &dtbo.display().to_string()])
         .arg(&dts)
         .status();
 
@@ -79,9 +80,9 @@ fn build_dtb(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
         return Err(());
     }
 
-    cargo::info!("DTB: {dtb:?}");
+    cargo::info!("DTBO: {dtbo:?}");
 
-    Ok(())
+    Ok(dtbo)
 }
 
 fn cons_lds(out: &PathBuf, arch: &str, board: &str) -> Result<PathBuf, ()> {
@@ -103,8 +104,8 @@ fn cons_lds(out: &PathBuf, arch: &str, board: &str) -> Result<PathBuf, ()> {
 }
 
 fn do_main(out: &PathBuf, arch: &str, board: &str) -> Result<(), ()> {
-    build_asm(arch)?;
-    build_dtb(out, arch, board)?;
+    let dtbo = build_dtb(out, arch, board)?;
+    build_asm(arch, &dtbo)?;
 
     let lds = cons_lds(out, arch, board)?;
     cargo::rustc_link_arg!("-T{}", lds.display());

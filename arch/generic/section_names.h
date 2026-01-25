@@ -5,3 +5,6 @@
 
 /// Name of the section containing early initialization code.
 #define SNAME_START_TEXT .text.start
+
+/// Name of the section containing Devicetree blob.
+#define SNAME_DTB .rodata.dtb

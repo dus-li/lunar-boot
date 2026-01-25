@@ -20,6 +20,14 @@
   		__etext_start = .;        \
   	}
 
+  /// Declare a section with an embedded Devicetree blob.
+  #define SECTION_DTB              \
+  	SNAME_DTB : ALIGN(8) {     \
+  		__dtb = .;         \
+  		KEEP(*(SNAME_DTB)) \
+  		__edtb = .;        \
+  	}
+
   // Declare .data section.
   #define SECTION_DATA       \
   	.data : {            \

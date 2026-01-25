@@ -43,7 +43,7 @@
 /// @brief Entry point of the bootloader.
 ///
 /// TODO: elaborate
-SECTION1(SNAME_START_TEXT)
+SECTION(SNAME_START_TEXT)
 BEGIN_FUNCTION(start)
 	// Check current core within a processor and stall all except the
 	// primary one for the initial setup phases.
