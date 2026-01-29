@@ -27,8 +27,10 @@ SECTIONS
 	// Stack space for initialization code.
 	SECTION_INIT_STACK(16, _4_KiB)
 
-	// Early initialization code.
+	// Early initialization sections, in reverse reclaim order.
+	SECTION_START_ARENA(PAGE_SIZE, PAGE_SIZE)
 	SECTION_START_TEXT(PAGE_SIZE)
 
+	// Dynamic allocations for late code.
 	SECTION_HEAP(PAGE_SIZE)
 }

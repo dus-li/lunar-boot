@@ -7,6 +7,7 @@
 pub mod align;
 pub mod fdt;
 pub mod inttypes;
+pub mod start_arena;
 
 /// A module exporting build-generated section constants.
 pub mod sections {
@@ -21,6 +22,10 @@ use crate::fdt::FdtStreamable;
 #[unsafe(link_section = sections::start_text!())]
 pub extern "C" fn kentry() -> ! {
     fdt::init();
+
+    // XXX temporary, for GDB testing
+    #[allow(unused_variables)]
+    let arena = start_arena::init();
 
     // XXX temporary, for GDB testing
     let stdout_handle = fdt::get()

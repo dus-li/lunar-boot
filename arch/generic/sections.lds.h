@@ -21,6 +21,16 @@
   		__estart = .;             \
   	}
 
+  /// Section for early init allocations.
+  ///
+  /// This section will be reclaimed once the setup is complete.
+  #define SECTION_START_ARENA(align, size) \
+  	SNAME_START_ARENA : ALIGN(align) { \
+  		__arena = .;               \
+  		. += size;                 \
+  		__earena = .;              \
+  	}
+
   /// Declare standard text section.
   ///
   /// This is a section with executable code which is not a part of the early

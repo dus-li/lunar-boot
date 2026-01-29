@@ -8,3 +8,6 @@
 
 /// Name of the section containing Devicetree blob.
 #define SNAME_DTB .dtb.rodata
+
+/// Name of the section containing early initialization arena.
+#define SNAME_START_ARENA .start.arena
