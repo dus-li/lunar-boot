@@ -164,7 +164,7 @@ impl FdtHeader {
     }
 }
 
-/// A ZST representing embedded devicetree blob data.
+/// Initialize a devicetree internal state from an embedded FDT blob.
 ///
 /// During the build process, lunar's build script is programmed to seek target
 /// board's DTS file and compile it into a DTBO file. The result of this
@@ -172,52 +172,40 @@ impl FdtHeader {
 /// `arch/<ARCH>/asm/dtb.S` file, where it is also assinged a symbol
 /// [`fdt_blob`]. Linker is scripted to place this object in a special,
 /// readonly section.
-///
-/// This ZST functions as a way to expose various functions related directly to
-/// the underlying data to other modules. This also means, that it is, for the
-/// most part, only needed for its [`Fdt::get`] method, that yields a reference
-/// to a static [`FdtView`] instance, which is what modules actually need to
-/// use when they need to do something productive with the information encoded
-/// by the device tree.
-pub struct Fdt;
+#[unsafe(link_section = sections::start_text!())]
+pub fn init() {
+    let header: FdtHeader;
+    let data: &[u8];
 
-impl Fdt {
-    /// Initialize a devicetree internal state from an embedded FDT blob.
-    #[unsafe(link_section = sections::start_text!())]
-    pub fn init() {
-        let header: FdtHeader;
-        let data: &[u8];
+    unsafe {
+        let start = fdt_blob.as_ptr();
+        header = core::ptr::read(start as *const FdtHeader);
 
-        unsafe {
-            let start = fdt_blob.as_ptr();
-            header = core::ptr::read(start as *const FdtHeader);
-
-            // Validate magic number
-            if header.magic.get() != FDT_MAGIC {
-                panic!("FDT magic number mismatch");
-            }
-
-            // Obtain a slice with the entire FDT
-            let size = header.totalsize.get() as usize;
-            data = core::slice::from_raw_parts(start, size);
+        // Validate magic number
+        if header.magic.get() != FDT_MAGIC {
+            panic!("FDT magic number mismatch");
         }
 
-        let view = FdtView {
-            dt_struct: header.dt_struct(data),
-            dt_strings: header.dt_strings(data),
-            mem_rsvmap: header.mem_rsvmap(data),
-            data,
-        };
-
-        unsafe {
-            *SYSTEM_FDT.0.get() = Some(view);
-        }
+        // Obtain a slice with the entire FDT
+        let size = header.totalsize.get() as usize;
+        data = core::slice::from_raw_parts(start, size);
     }
 
-    /// Obtain a reference to a view into embedded FDT blob.
-    pub fn get() -> &'static FdtView<'static> {
-        unsafe { (*SYSTEM_FDT.0.get()).as_ref().expect("FDT not initialized") }
+    let view = FdtView {
+        dt_struct: header.dt_struct(data),
+        dt_strings: header.dt_strings(data),
+        mem_rsvmap: header.mem_rsvmap(data),
+        data,
+    };
+
+    unsafe {
+        *SYSTEM_FDT.0.get() = Some(view);
     }
+}
+
+/// Obtain a reference to a view into embedded FDT blob.
+pub fn get() -> &'static FdtView<'static> {
+    unsafe { (*SYSTEM_FDT.0.get()).as_ref().expect("FDT not initialized") }
 }
 
 /// A streamed reader of an FDT blob.

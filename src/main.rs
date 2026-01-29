@@ -20,10 +20,10 @@ use crate::fdt::FdtStreamable;
 #[unsafe(no_mangle)]
 #[unsafe(link_section = sections::start_text!())]
 pub extern "C" fn kentry() -> ! {
-    fdt::Fdt::init();
+    fdt::init();
 
     // XXX temporary, for GDB testing
-    let stdout_handle = fdt::Fdt::get()
+    let stdout_handle = fdt::get()
         .node_by_name("chosen")
         .unwrap()
         .prop_phandle("stdout")
@@ -31,7 +31,7 @@ pub extern "C" fn kentry() -> ! {
 
     // XXX temporary, for GDB testing
     #[allow(unused_variables)]
-    let stdout = fdt::Fdt::get().node_by_phandle(stdout_handle).unwrap();
+    let stdout = fdt::get().node_by_phandle(stdout_handle).unwrap();
 
     kmain();
 }
