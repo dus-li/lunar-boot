@@ -5,8 +5,8 @@ use core::cell::UnsafeCell;
 use core::iter::Iterator;
 use core::str;
 
-use crate::align;
 use crate::inttypes::{BEu32, BEu64};
+use crate::{align, sections};
 
 /// FDT header magic number, as mandated by the devicetree specification.
 const FDT_MAGIC: u32 = 0xD00DFEED;
@@ -183,6 +183,7 @@ pub struct Fdt;
 
 impl Fdt {
     /// Initialize a devicetree internal state from an embedded FDT blob.
+    #[unsafe(link_section = sections::start_text!())]
     pub fn init() {
         let header: FdtHeader;
         let data: &[u8];

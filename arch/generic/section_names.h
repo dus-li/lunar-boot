@@ -4,7 +4,7 @@
 #pragma once
 
 /// Name of the section containing early initialization code.
-#define SNAME_START_TEXT .text.start
+#define SNAME_START_TEXT .start.text
 
 /// Name of the section containing Devicetree blob.
-#define SNAME_DTB .rodata.dtb
+#define SNAME_DTB .dtb.rodata

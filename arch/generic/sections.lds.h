@@ -12,12 +12,25 @@
   ///
   /// This is a section populated with early initialization code, implemented
   /// in assembly. Its contents are responsible for basic platform setup and
-  /// creating an execution environment for HLL code.
-  #define SECTION_START_TEXT              \
-  	SNAME_START_TEXT : {              \
-  		__text_start = .;         \
+  /// creating an execution environment for HLL code. The contents of this
+  /// section will be reclaimed once the setup is complete.
+  #define SECTION_START_TEXT(align)       \
+  	SNAME_START_TEXT : ALIGN(align) { \
+  		__start = .;              \
   		KEEP(*(SNAME_START_TEXT)) \
-  		__etext_start = .;        \
+  		__estart = .;             \
+  	}
+
+  /// Declare standard text section.
+  ///
+  /// This is a section with executable code which is not a part of the early
+  /// initialization. As such, it will not be reclaimed after the initial
+  /// setup is complete.
+  #define SECTION_TEXT       \
+  	.text : {            \
+  		__text = .;  \
+  		*(.text*)    \
+  		__etext = .; \
   	}
 
   /// Declare a section with an embedded Devicetree blob.
@@ -52,5 +65,10 @@
   	. = ALIGN(align);                 \
   	. += size;                        \
   	__estack = .;                     \
+
+  /// Heap space.
+  #define SECTION_HEAP(align) \
+  	. = ALIGN(align);     \
+  	__heap = .;
 
 #endif // defined(__LINKER_SCRIPT__)

@@ -7,16 +7,18 @@
 OUTPUT_ARCH(aarch64);
 ENTRY(start);
 
+PAGE_SIZE = _4_KiB;
+
 SECTIONS
 {
 	// Start placing sections at board-defined firmware address.
 	. = IMAGE_ADDRESS;
 
-	// Early initialization code.
-	SECTION_START_TEXT
-
 	// Devicetree blob.
 	SECTION_DTB
+
+	// Unreclaimable code.
+	SECTION_TEXT
 
 	// Initialized and uninitialized data sections.
 	SECTION_DATA
@@ -24,4 +26,9 @@ SECTIONS
 
 	// Stack space for initialization code.
 	SECTION_INIT_STACK(16, _4_KiB)
+
+	// Early initialization code.
+	SECTION_START_TEXT(PAGE_SIZE)
+
+	SECTION_HEAP(PAGE_SIZE)
 }

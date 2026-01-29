@@ -8,13 +8,18 @@ pub mod align;
 pub mod fdt;
 pub mod inttypes;
 
+/// A module exporting build-generated section constants.
+pub mod sections {
+    include!(env!("BUILD_SECTIONS"));
+}
+
 use core::panic::PanicInfo;
 
 use crate::fdt::FdtStreamable;
 
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.start")]
-pub extern "C" fn kmain() -> ! {
+#[unsafe(link_section = sections::start_text!())]
+pub extern "C" fn kentry() -> ! {
     fdt::Fdt::init();
 
     // XXX temporary, for GDB testing
@@ -28,6 +33,11 @@ pub extern "C" fn kmain() -> ! {
     #[allow(unused_variables)]
     let stdout = fdt::Fdt::get().node_by_phandle(stdout_handle).unwrap();
 
+    kmain();
+}
+
+#[inline(never)]
+fn kmain() -> ! {
     loop {}
 }
 

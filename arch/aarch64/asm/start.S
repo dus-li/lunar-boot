@@ -86,7 +86,7 @@ from_el2:
 
 el1_entry:
 	// Set stack pointer.
-	ADR	x9, __estack
+	LDR	x9, =__estack
 	MOV	sp, x9
 
 	// Enable full access to floating point and SIMD for EL1 and EL0.
@@ -95,8 +95,8 @@ el1_entry:
 	ISB
 
 	// Populate .bss section with zeros.
-	ADR	x9, __bss
-	ADR	x10, __ebss
+	LDR	x9, =__bss
+	LDR	x10, =__ebss
 0:	CMP	x9, x10
 	B.GE	branch_to_hll
 	STP	xzr, xzr, [x9]
@@ -104,7 +104,8 @@ el1_entry:
 	B	0b
 
 branch_to_hll:
-	BL	kmain
+	LDR	x9, =kentry
+	BLR	x9
 	LDR	x0, =0xC0DEDEAD
 0:	B	0b
 END_FUNCTION(start)

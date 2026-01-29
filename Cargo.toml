@@ -17,3 +17,4 @@ publish = false
 
 [build-dependencies]
 cc = "1.2.53"
+regex = "1.12.2"
