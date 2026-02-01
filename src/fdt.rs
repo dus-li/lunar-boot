@@ -34,9 +34,22 @@ pub trait FdtStreamable<'a> {
     /// Obtain an instance of an FDT stream over the type.
     fn stream(&self) -> FdtStream<'a>;
 
-    /// Search for a node with a given name, ignoring unit address.
+    /// Search for a node with a given name and, if included, unit address.
     fn node_by_name(&self, target: &str) -> Option<FdtNode<'a>> {
-        self.stream().find(|node| name_matches(&node.name, target))
+        self.stream().find(|node| {
+            &node.name == &target.strip_suffix('\0').unwrap_or(target)
+        })
+    }
+
+    /// Search for a node at a given path.
+    fn node_by_path(&self, target: &str) -> Option<FdtNode<'a>> {
+        let target = target.get(target.find(|c| c != '/')?..)?;
+
+        if let Some((head, tail)) = target.split_once('/') {
+            return self.node_by_name(head)?.node_by_path(tail);
+        }
+
+        self.node_by_name(target)
     }
 
     /// Search for a node with a given phandle.
@@ -380,13 +393,6 @@ pub struct FdtView<'a> {
     dt_struct: &'a [u8],
     dt_strings: &'a [u8],
     mem_rsvmap: &'a [FdtReserveEntry],
-}
-
-/// Check if a name matches some target, ignoring unit address in the process.
-fn name_matches(name: &str, target: &str) -> bool {
-    name == target
-        || (name.starts_with(target)
-            && name.as_bytes().get(target.len()) == Some(&b'@'))
 }
 
 impl<'a> FdtStreamable<'a> for FdtView<'a> {

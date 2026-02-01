@@ -10,7 +10,7 @@
     #size-cells = <1>;
 
     chosen {
-        stdout = <&uart0>;
+        stdout-path = &uart0;
     };
 
     soc {

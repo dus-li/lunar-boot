@@ -28,15 +28,15 @@ pub extern "C" fn kentry() -> ! {
     let arena = mem::start::init();
 
     // XXX temporary, for GDB testing
-    let stdout_handle = fdt::get()
+    let stdout_path = fdt::get()
         .node_by_name("chosen")
         .unwrap()
-        .prop_phandle("stdout")
+        .prop_str("stdout-path")
         .unwrap();
 
     // XXX temporary, for GDB testing
     #[allow(unused_variables)]
-    let stdout = fdt::get().node_by_phandle(stdout_handle).unwrap();
+    let stdout = fdt::get().node_by_path(stdout_path).unwrap();
 
     kmain();
 }
