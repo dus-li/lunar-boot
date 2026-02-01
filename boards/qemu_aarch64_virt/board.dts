@@ -6,33 +6,36 @@
 / {
     compatible = "qemu,virt";
     model = "virt";
-    #address-cells = <1>;
-    #size-cells = <1>;
+
+    #address-cells = <2>;
+    #size-cells = <2>;
 
     chosen {
         stdout-path = &uart0;
     };
 
+    clocks {
+        uart_clk: clock {
+            compatible = "fixed-clock";
+
+            #clock-cells = <0>;
+            clock-frequency = <24000000>;
+        };
+    };
+
     soc {
         compatible = "simple-bus";
 
-        #address-cells = <1>;
-        #size-cells = <1>;
+        #address-cells = <2>;
+        #size-cells = <2>;
 
         uart0: serial@9000000 {
             compatible = "arm,pl011", "arm-primecell";
-
             reg = <0x0 0x09000000 0x0 0x1000>;
+
             interrupts = <0x0 0x1 0x4>;
             clocks = <&uart_clk>;
             clock-names = "apb_pclk";
-        };
-
-        uart_clk: clock {
-            compatible = "fixed-clock";
-            #clock-cells = <0>;
-
-            clock-frequency = <24000000>;
         };
     };
 };
