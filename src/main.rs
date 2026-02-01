@@ -7,7 +7,7 @@
 pub mod align;
 pub mod fdt;
 pub mod inttypes;
-pub mod start_arena;
+pub mod mem;
 
 /// A module exporting build-generated section constants.
 pub mod sections {
@@ -25,7 +25,7 @@ pub extern "C" fn kentry() -> ! {
 
     // XXX temporary, for GDB testing
     #[allow(unused_variables)]
-    let arena = start_arena::init();
+    let arena = mem::start::init();
 
     // XXX temporary, for GDB testing
     let stdout_handle = fdt::get()
