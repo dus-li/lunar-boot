@@ -35,8 +35,11 @@ pub extern "C" fn kentry() -> ! {
         .unwrap();
 
     // XXX temporary, for GDB testing
-    #[allow(unused_variables)]
     let stdout = fdt::get().node_by_path(stdout_path).unwrap();
+
+    // XXX temporary, for GDB testing
+    #[allow(unused_variables)]
+    let range = stdout.reg_u64();
 
     kmain();
 }

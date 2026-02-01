@@ -3,6 +3,7 @@
 
 use core::cell::UnsafeCell;
 use core::iter::Iterator;
+use core::ops::Range;
 use core::str;
 
 use crate::inttypes::{BEu32, BEu64};
@@ -25,14 +26,55 @@ unsafe extern "C" {
 /// be an overkill.
 static SYSTEM_FDT: FdtViewCell = FdtViewCell(UnsafeCell::new(None));
 
+fn read_from_tape_u32<'a>(tape: &'a [u8], off: usize) -> Option<u32> {
+    tape[off..off + 4].try_into().ok().map(u32::from_be_bytes)
+}
+
 /// A trait representing an object which can be turned to an [`FdtStream`].
 ///
-/// Upon implementing [`FdtStreamable::stream`], it automatically becomes
-/// possible to search the implementing type by name and phandles to locate
-/// nodes and properties.
+/// Upon implementing following three methods:
+///
+/// - [`FdtStreamable::data`]
+/// - [`FdtStreamable::strings`]
+/// - [`FdtStreamable::parent_address_cells`]
+/// - [`FdtStreamable::parent_size_cells`]
+///
+/// it automatically becomes possible to search the implementing type by name
+/// and phandles to locate nodes and properties.
 pub trait FdtStreamable<'a> {
+    /// Obtain a slice with given streamable object's data.
+    fn data(&self) -> &'a [u8];
+
+    /// Obtain a slice with given streamable object's strings.
+    fn strings(&self) -> &'a [u8];
+
+    /// Obtain value of `#address-cells` of the parent node.
+    fn parent_address_cells(&self) -> u32;
+
+    /// Obtain value of `#size-cells` of the parent node.
+    fn parent_size_cells(&self) -> u32;
+
     /// Obtain an instance of an FDT stream over the type.
-    fn stream(&self) -> FdtStream<'a>;
+    fn stream(&self) -> FdtStream<'a> {
+        FdtStream::new(
+            self.data(),
+            self.strings(),
+            self.address_cells(),
+            self.size_cells(),
+        )
+    }
+
+    /// Obtain value of `#address-cells`.
+    fn address_cells(&self) -> u32 {
+        self.shallow_prop_u32("#address-cells")
+            .unwrap_or(self.parent_address_cells())
+    }
+
+    /// Obtain value of `#size-cells`.
+    fn size_cells(&self) -> u32 {
+        self.shallow_prop_u32("#size-cells")
+            .unwrap_or(self.parent_size_cells())
+    }
 
     /// Search for a node with a given name and, if included, unit address.
     fn node_by_name(&self, target: &str) -> Option<FdtNode<'a>> {
@@ -64,6 +106,41 @@ pub trait FdtStreamable<'a> {
             })
     }
 
+    fn shallow_prop_raw(&self, target: &str) -> Option<&'a [u8]> {
+        use FdtToken::*;
+
+        // An incomplete stream with no address and size cells information.
+        // Used only for string searching.
+        let stream = FdtStream::new(self.data(), self.strings(), 0, 0);
+
+        let tape = self.data();
+        let mut off = 0usize;
+
+        while off + 4 <= tape.len() {
+            let token = read_from_tape_u32(tape, off)?;
+            off += 4;
+
+            match token {
+                _ if token == Prop as u32 => {
+                    let len = read_from_tape_u32(tape, off)? as usize;
+                    let soff = read_from_tape_u32(tape, off + 4)? as usize;
+                    off += 8;
+
+                    if stream.string_at_off(soff)? == target {
+                        return tape.get(off..off + len);
+                    }
+
+                    off = align::align_up!(off + len, 4);
+                }
+                _ if token == BeginNode as u32 => break,
+                _ if token == EndNode as u32 => break,
+                _ => {}
+            }
+        }
+
+        None
+    }
+
     /// Search for a given property and return its value as raw bytes.
     fn prop_raw(&self, target: &str) -> Option<&'a [u8]> {
         use FdtToken::*;
@@ -75,9 +152,8 @@ pub trait FdtStreamable<'a> {
                 _ if token == Prop as u32 => {
                     let len = stream.next_u32()? as usize;
                     let off = stream.next_u32()? as usize;
-                    let name = stream.string_at_off(off)?;
 
-                    if name == target {
+                    if stream.string_at_off(off)? == target {
                         return stream.tape.get(stream.off..stream.off + len);
                     }
 
@@ -99,6 +175,12 @@ pub trait FdtStreamable<'a> {
             .flatten()
     }
 
+    fn shallow_prop_u32(&self, target: &str) -> Option<u32> {
+        self.shallow_prop_raw(target)
+            .map(|bytes| bytes[0..4].try_into().ok().map(u32::from_be_bytes))
+            .flatten()
+    }
+
     /// Search for a given property and return its value as a string slice.
     fn prop_str(&self, target: &str) -> Option<&'a str> {
         self.prop_raw(target)
@@ -111,6 +193,15 @@ pub trait FdtStreamable<'a> {
         self.prop_raw(target)
             .map(|bytes| bytes.try_into().ok().map(BEu32::new))
             .flatten()
+    }
+
+    /// Search for a given property and return its value as cells.
+    fn prop_cells(&self, target: &str) -> Option<impl Iterator<Item = u32>> {
+        self.prop_raw(target).map(|data| {
+            data.chunks_exact(4)
+                .map(|chunk| chunk.try_into().ok().map(u32::from_be_bytes))
+                .flatten()
+        })
     }
 }
 
@@ -226,6 +317,8 @@ pub struct FdtStream<'a> {
     tape: &'a [u8],
     strings: &'a [u8],
     off: usize,
+    paddr_cells: u32,
+    psize_cells: u32,
 }
 
 impl<'a> FdtStream<'a> {
@@ -235,11 +328,15 @@ impl<'a> FdtStream<'a> {
     ///
     /// - `tape`: A DT struct slice starting with an FDT_BEGIN_NODE token.
     /// - `strings`: Entire DT strings slice.
-    fn new(tape: &'a [u8], strings: &'a [u8]) -> Self {
+    /// - `addr`: Value of `#address-cells` at start point.
+    /// - `size`: Value of `#size-cells` at start point.
+    fn new(tape: &'a [u8], strings: &'a [u8], addr: u32, size: u32) -> Self {
         FdtStream {
             tape,
             strings,
             off: 0,
+            paddr_cells: addr,
+            psize_cells: size,
         }
     }
 
@@ -335,6 +432,8 @@ impl<'a> Iterator for FdtStream<'a> {
                         tape: self.tape,
                         strings: self.strings,
                         off: self.off,
+                        paddr_cells: self.paddr_cells,
+                        psize_cells: self.psize_cells,
                     };
 
                     let start = self.off;
@@ -342,6 +441,8 @@ impl<'a> Iterator for FdtStream<'a> {
 
                     return Some(FdtNode {
                         name,
+                        paddr_cells: self.paddr_cells,
+                        psize_cells: self.psize_cells,
                         body: &self.tape[start..end],
                         strings: self.strings,
                     });
@@ -368,6 +469,8 @@ enum FdtToken {
 
 /// A zero-copy handle into a devicetree node.
 pub struct FdtNode<'a> {
+    paddr_cells: u32,
+    psize_cells: u32,
     name: &'a str,
     body: &'a [u8],
     strings: &'a [u8],
@@ -377,8 +480,48 @@ pub struct FdtNode<'a> {
 pub type Phandle = BEu32;
 
 impl<'a> FdtStreamable<'a> for FdtNode<'a> {
-    fn stream(&self) -> FdtStream<'a> {
-        FdtStream::new(&self.body, &self.strings)
+    fn data(&self) -> &'a [u8] {
+        self.body
+    }
+
+    fn strings(&self) -> &'a [u8] {
+        self.strings
+    }
+
+    fn parent_address_cells(&self) -> u32 {
+        self.paddr_cells
+    }
+
+    fn parent_size_cells(&self) -> u32 {
+        self.psize_cells
+    }
+}
+
+/// Combine cells into a 64 value.
+fn ccmb64(cells: &mut impl Iterator<Item = u32>, count: u32) -> Option<u64> {
+    let mut ret = 0u64;
+
+    if count == 0 {
+        return None;
+    }
+
+    for i in 0..count {
+        if count - i <= 2 {
+            ret = (ret << 32) | cells.next()? as u64;
+        }
+    }
+
+    Some(ret)
+}
+
+impl<'a> FdtNode<'a> {
+    pub fn reg_u64(&self) -> Option<Range<u64>> {
+        let mut cells = self.prop_cells("reg")?;
+
+        let base = ccmb64(&mut cells, self.parent_address_cells())?;
+        let size = ccmb64(&mut cells, self.parent_size_cells())?;
+
+        Some(base..base + size)
     }
 }
 
@@ -396,9 +539,20 @@ pub struct FdtView<'a> {
 }
 
 impl<'a> FdtStreamable<'a> for FdtView<'a> {
-    /// Start streaming contents of the devicetree structure.
-    fn stream(&self) -> FdtStream<'a> {
-        FdtStream::new(&self.dt_struct, &self.dt_strings)
+    fn data(&self) -> &'a [u8] {
+        self.dt_struct
+    }
+
+    fn strings(&self) -> &'a [u8] {
+        self.dt_strings
+    }
+
+    fn parent_address_cells(&self) -> u32 {
+        2
+    }
+
+    fn parent_size_cells(&self) -> u32 {
+        1
     }
 }
 
